@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trình Tải Video & Âm Thanh YouTube</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+        body { background: #0f172a; color: #f8fafc; display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 20px; }
+        .card { background: #1e293b; border: 1px solid #334155; border-radius: 14px; padding: 30px; width: 100%; max-width: 520px; box-shadow: 0 10px 30px rgba(0,0,0,0.4); }
+        h1 { font-size: 22px; margin-bottom: 20px; text-align: center; color: #38bdf8; }
+        
+        .input-group { display: flex; gap: 10px; margin-bottom: 15px; }
+        input[type="text"] { flex: 1; padding: 12px 16px; border-radius: 8px; border: 1px solid #475569; background: #0f172a; color: #fff; outline: none; }
+        input[type="text"]:focus { border-color: #38bdf8; }
+        button { padding: 12px 20px; background: #0284c7; color: white; border: none; border-radius: 8px; font-weight: 600; cursor: pointer; transition: 0.2s; }
+        button:hover { background: #0369a1; }
+        button:disabled { opacity: 0.6; cursor: not-allowed; }
+
+        /* Khối hiển thị xem trước */
+        #preview { display: none; margin-top: 20px; border-top: 1px solid #334155; padding-top: 20px; }
+        #thumb { width: 100%; border-radius: 8px; margin-bottom: 12px; }
+        #videoTitle { font-size: 15px; font-weight: 600; margin-bottom: 15px; line-height: 1.4; }
+        
+        /* Bộ chọn định dạng */
+        .format-selection { margin-bottom: 15px; display: flex; gap: 15px; background: #0f172a; padding: 12px; border-radius: 8px; border: 1px solid #334155; }
+        .format-selection label { display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 14px; }
+        
+        /* Thanh tiến trình (Progress Bar) */
+        .progress-box { display: none; margin-top: 15px; }
+        .progress-bar-container { width: 100%; height: 10px; background: #334155; border-radius: 5px; overflow: hidden; margin-top: 6px; }
+        .progress-bar { width: 0%; height: 100%; background: #38bdf8; transition: width 0.3s ease; }
+        .progress-text { font-size: 13px; color: #94a3b8; display: flex; justify-content: space-between; }
+
+        .download-btn { display: block; text-align: center; width: 100%; background: #22c55e; text-decoration: none; color: white; padding: 12px; border-radius: 8px; font-weight: bold; transition: 0.2s; }
+        .download-btn:hover { background: #16a34a; }
+        #status { text-align: center; margin-top: 10px; font-size: 14px; color: #94a3b8; }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <h1>🎬 Tải Video & Âm Thanh</h1>
+    
+    <div class="input-group">
+        <input type="text" id="urlInput" placeholder="Dán liên kết YouTube vào đây..." />
+        <button id="checkBtn" onclick="checkVideo()">Kiểm tra</button>
+    </div>
+
+    <div id="status"></div>
+
+    <div id="preview">
+        <img id="thumb" src="" alt="Thumbnail" />
+        <div id="videoTitle"></div>
+
+        <!-- Tùy chọn định dạng -->
+        <div class="format-selection">
+            <label>
+                <input type="radio" name="formatOption" value="mp4" checked> 🎥 Video MP4 (720p)
+            </label>
+            <label>
+                <input type="radio" name="formatOption" value="mp3"> 🎵 Âm thanh MP3
+            </label>
+        </div>
+
+        <a id="downloadLink" class="download-btn" href="#" onclick="startDownload()">⬇️ Bắt đầu tải về</a>
+
+        <!-- Thanh đo tiến trình chuẩn bị tệp -->
+        <div id="progressBox" class="progress-box">
+            <div class="progress-text">
+                <span id="progressStatus">Đang chuẩn bị luồng tệp...</span>
+                <span id="progressPercent">0%</span>
+            </div>
+            <div class="progress-bar-container">
+                <div id="progressBar" class="progress-bar"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let currentUrl = '';
+
+    async function checkVideo() {
+        const url = document.getElementById('urlInput').value.trim();
+        const status = document.getElementById('status');
+        const preview = document.getElementById('preview');
+        const checkBtn = document.getElementById('checkBtn');
+        const progressBox = document.getElementById('progressBox');
+
+        if (!url) return alert('Vui lòng nhập đường link!');
+
+        currentUrl = url;
+        status.innerText = 'Đang phân tích dữ liệu video...';
+        preview.style.display = 'none';
+        progressBox.style.display = 'none';
+        checkBtn.disabled = true;
+
+        try {
+            const res = await fetch('/api/info', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ url })
+            });
+
+            const data = await res.json();
+            if (data.error) throw new Error(data.error);
+
+            document.getElementById('thumb').src = data.thumbnail;
+            document.getElementById('videoTitle').innerText = data.title;
+
+            status.innerText = '';
+            preview.style.display = 'block';
+        } catch (err) {
+            status.innerText = '❌ Không thể tải thông tin video. Hãy thử liên kết khác!';
+        } finally {
+            checkBtn.disabled = false;
+        }
+    }
+
+    function startDownload() {
+        const selectedFormat = document.querySelector('input[name="formatOption"]:checked').value;
+        const downloadUrl = `/api/download?url=${encodeURIComponent(currentUrl)}&format=${selectedFormat}`;
+
+        // Hiển thị thanh tiến trình giả lập quá trình trích xuất tệp
+        const progressBox = document.getElementById('progressBox');
+        const progressBar = document.getElementById('progressBar');
+        const progressPercent = document.getElementById('progressPercent');
+        const progressStatus = document.getElementById('progressStatus');
+
+        progressBox.style.display = 'block';
+        progressBar.style.width = '0%';
+        progressPercent.innerText = '0%';
+        progressStatus.innerText = 'Máy chủ đang xử lý dữ liệu...';
+
+        let percent = 0;
+        const interval = setInterval(() => {
+            if (percent < 90) {
+                percent += Math.floor(Math.random() * 15) + 5;
+                if (percent > 90) percent = 90;
+                progressBar.style.width = percent + '%';
+                progressPercent.innerText = percent + '%';
+            }
+        }, 400);
+
+        // Kích hoạt đường dẫn tải xuống
+        window.location.href = downloadUrl;
+
+        // Hoàn tất thanh trạng thái khi trình duyệt bắt đầu tiếp nhận tệp
+        setTimeout(() => {
+            clearInterval(interval);
+            progressBar.style.width = '100%';
+            progressPercent.innerText = '100%';
+            progressStatus.innerText = 'Đã gửi tệp thành công tới trình duyệt!';
+        }, 3000);
+    }
+</script>
+
+</body>
+</html>

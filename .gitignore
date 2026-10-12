@@ -1,0 +1,11 @@
+# Bỏ qua toàn bộ tệp chạy thực thi của Windows
+*.exe
+ffmpeg.exe
+yt-dlp.exe
+
+# Bỏ qua thư mục thư viện của Node.js
+node_modules/
+
+# Bỏ qua các tệp video tải thử nghiệm
+*.mp4
+*.mp3
